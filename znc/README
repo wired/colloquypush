@@ -1,0 +1,29 @@
+Thanks to prozac we have a working znc module that pushes priv messages and hilights to Colloquy Mobile.
+
+To install make sure you have znc installed and configured, then run the following:
+
+	$ wget http://github.com/wired/colloquypush/raw/master/znc/colloquy.cpp
+	$ znc-buildmod colloquy.app
+	$ mv colloquy.so ~/.znc/modules/
+
+you should now load the "colloquy" module either by enabling it in the web admin module,
+or by typing "/msg *status loadmod colloquy"
+
+to configure your Colloquy Mobile to use Push, follow the following instructions, quoted from:
+	http://colloquy.info/project/wiki/PushNotifications
+
+1. Hit the + Button in the Connections tab and select "IRC Connection"
+2. Enter the server address as the Address.
+3. Select "Push Notifications" and then turn them On.
+4. Go to "Advanced".
+5. Enter the Server Port and toggle SSL status as necessary.
+6. Enter your ZNC account name as your Username.
+7. Enter your ZNC account password as the Password. (Note: not Nick Pass).
+8. Go back and hit "Connect". 
+
+Result: If all went well, you should get a message from *colloquy saying 
+that push is now loaded on ZNC for your device. You can also type 
+"/msg *colloquy list" to see all of the devices that receive push 
+notifications from your ZNC account.
+
+Note: badge clearing works now :)
