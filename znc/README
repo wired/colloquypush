@@ -3,7 +3,7 @@ Thanks to prozac we have a working znc module that pushes priv messages and hili
 To install make sure you have znc installed and configured, then run the following:
 
 	$ wget http://github.com/wired/colloquypush/raw/master/znc/colloquy.cpp
-	$ znc-buildmod colloquy.app
+	$ znc-buildmod colloquy.cpp
 	$ mv colloquy.so ~/.znc/modules/
 
 you should now load the "colloquy" module either by enabling it in the web admin module,
