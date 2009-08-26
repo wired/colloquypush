@@ -54,9 +54,9 @@ public:
 		return true;
 	}
 
-	bool Push(const CString& sNick, const CString& sMessage, const CString& sChannel, bool bHilite) {
-		if (m_sToken.empty() || sNick.empty() || sMessage.empty()) {
-			DEBUG("---- Push(\"" + sNick + "\", \"" + sMessage + "\", \"" + sChannel + "\", " + CString(bHilite) + ")");
+	bool Push(const CString& sNick, const CString& sMessage, const CString& sChannel, bool bHilite, int iBadge) {
+		if (m_sToken.empty()) {
+			DEBUG("---- Push(\"" + sNick + "\", \"" + sMessage + "\", \"" + sChannel + "\", " + CString(bHilite) + ", " + CString(iBadge) + ")");
 			return false;
 		}
 
@@ -69,10 +69,26 @@ public:
 		sPayload = "{";
 
 		sPayload += "\"device-token\":\"" + CollEscape(m_sToken) + "\"";
-		sPayload += ",\"message\":\"" + CollEscape(sMessage) + "\"";
-		// action
-		sPayload += ",\"sender\":\"" + CollEscape(sNick) + "\"";
 
+		if (!sMessage.empty()) {
+			sPayload += ",\"message\":\"" + CollEscape(sMessage) + "\"";
+		}
+		// action
+		if (!sNick.empty()) {
+			sPayload += ",\"sender\":\"" + CollEscape(sNick) + "\"";
+		}
+
+		// this handles the badge
+		// 0 resets, other values add/subtract
+		if ( iBadge == 0 )
+		{
+			sPayload += ",\"badge\": \"reset\"";
+		}
+		else
+		{
+			sPayload += ",\"badge\": " + CString(iBadge);
+		}
+		
 		if (!sChannel.empty()) {
 			sPayload += ",\"room\":\"" + CollEscape(sChannel) + "\"";
 		}
@@ -87,7 +103,7 @@ public:
 
 		if (bHilite && !m_sHiliteSound.empty()) {
 			sPayload += ",\"sound\":\"" + CollEscape(m_sHiliteSound) + "\"";
-		} else if (!bHilite && !m_sMessageSound.empty()) {
+		} else if (!bHilite && !m_sMessageSound.empty() && iBadge != 0) {
 			sPayload += ",\"sound\":\"" + CollEscape(m_sMessageSound) + "\"";
 		}
 
@@ -385,22 +401,22 @@ public:
 	}
 
 	virtual EModRet OnPrivNotice(CNick& Nick, CString& sMessage) {
-		Push(Nick.GetNick(), sMessage, "", false);
+		Push(Nick.GetNick(), sMessage, "", false, 1);
 		return CONTINUE;
 	}
 
 	virtual EModRet OnChanNotice(CNick& Nick, CChan& Channel, CString& sMessage) {
-		Push(Nick.GetNick(), sMessage, Channel.GetName(), true);
+		Push(Nick.GetNick(), sMessage, Channel.GetName(), true, 1);
 		return CONTINUE;
 	}
 
 	virtual EModRet OnPrivMsg(CNick& Nick, CString& sMessage) {
-		Push(Nick.GetNick(), sMessage, "", false);
+		Push(Nick.GetNick(), sMessage, "", false, 1);
 		return CONTINUE;
 	}
 
 	virtual EModRet OnChanMsg(CNick& Nick, CChan& Channel, CString& sMessage) {
-		Push(Nick.GetNick(), sMessage, Channel.GetName(), true);
+		Push(Nick.GetNick(), sMessage, Channel.GetName(), true, 1);
 		return CONTINUE;
 	}
 
@@ -503,7 +519,7 @@ public:
 		));
 	}
 
-	bool Push(const CString& sNick, const CString& sMessage, const CString& sChannel, bool bHilite) {
+	bool Push(const CString& sNick, const CString& sMessage, const CString& sChannel, bool bHilite, int iBadge) {
 		bool bRet = true;
 		vector<CClient*>& vpClients = m_pUser->GetClients();
 
@@ -522,7 +538,8 @@ public:
 			}
 
 			// If the current cached device was found to still be connected, don't push the msg
-			if (bFound) {
+			// unless we're trying to set badge to 0
+			if (bFound && iBadge != 0) {
 				return false;
 			}
 
@@ -549,12 +566,18 @@ public:
 				}
 			}
 
-			if (!pDevice->Push(sNick, sMessage, sChannel, bHilite)) {
+			if (!pDevice->Push(sNick, sMessage, sChannel, bHilite, iBadge)) {
 				bRet = false;
 			}
 		}
 
 		return bRet;
+	}
+
+	virtual void OnClientLogin() {
+		// Clear all badges on a client login
+		// this could be easily modded to only clear them for the connecting client
+		Push("","","",false,0);
 	}
 
 	virtual void OnClientDisconnect() {
