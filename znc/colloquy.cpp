@@ -278,6 +278,9 @@ private:
 class CColloquyMod : public CModule {
 public:
 	MODCONSTRUCTOR(CColloquyMod) {
+		// init vars
+		m_bAttachedPush = true;
+
 		LoadRegistry();
  
 		for (MCString::iterator it = BeginNV(); it != EndNV(); it++) {
@@ -297,6 +300,22 @@ public:
 				DEBUG("   --- Unknown registry entry: [" << it->first << "]");
 			}
 		}
+	}
+
+	virtual bool OnLoad(const CString& sArgs, CString& sErrorMsg) {
+		SCString sArgSet;
+
+		sArgs.Split("-",sArgSet);
+
+		for ( SCString::iterator it = sArgSet.begin(); it != sArgSet.end(); it++ ) {
+			CString sArg(*it);
+			sArg.Trim();
+			if ( sArg.TrimPrefix("attachedpush") ) {
+				m_bAttachedPush = sArg.ToBool();
+			}
+		}
+
+		return true;
 	}
 
 	virtual ~CColloquyMod() {
@@ -520,6 +539,10 @@ public:
 	}
 
 	bool Push(const CString& sNick, const CString& sMessage, const CString& sChannel, bool bHilite, int iBadge) {
+		if (iBadge != 0 && !m_bAttachedPush && m_pUser->IsUserAttached()) {
+			return false;
+		}
+
 		bool bRet = true;
 		vector<CClient*>& vpClients = m_pUser->GetClients();
 
@@ -588,6 +611,7 @@ public:
 
 private:
 	map<CString, CDevice*>	m_mspDevices;	// map of token to device info for clients who have sent us PUSH info
+	bool	m_bAttachedPush;
 };
 
 MODULEDEFS(CColloquyMod, "Push privmsgs and highlights to your iPhone via Colloquy Mobile")

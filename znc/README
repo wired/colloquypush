@@ -1,5 +1,9 @@
 Thanks to prozac we have a working znc module that pushes priv messages and hilights to Colloquy Mobile.
 
+* arguments accepted on module load:
+	-attachedpush 0|1 	- when set to 0, znc won't push messages if
+				  another client is attached
+
 To install make sure you have znc installed and configured, then run the following:
 
 	$ wget http://github.com/wired/colloquypush/raw/master/znc/colloquy.cpp
@@ -8,6 +12,11 @@ To install make sure you have znc installed and configured, then run the followi
 
 you should now load the "colloquy" module either by enabling it in the web admin module,
 or by typing "/msg *status loadmod colloquy"
+
+* if you don't want to receive push notifications when another client is attached,
+  you have to add
+	-attachedpush 0
+  in znc colloquy module's arguments box
 
 to configure your Colloquy Mobile to use Push, follow the following instructions, quoted from:
 	http://colloquy.info/project/wiki/PushNotifications
