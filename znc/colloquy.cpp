@@ -10,6 +10,7 @@
 #include "Chan.h"
 #include "User.h"
 #include "Modules.h"
+#include <time.h>
 
 #define REQUIRESSL		1
 
@@ -88,7 +89,7 @@ public:
 		{
 			sPayload += ",\"badge\": " + CString(iBadge);
 		}
-		
+
 		if (!sChannel.empty()) {
 			sPayload += ",\"room\":\"" + CollEscape(sChannel) + "\"";
 		}
@@ -276,13 +277,19 @@ private:
 
 
 class CColloquyMod : public CModule {
+protected:
+	int m_idleAfterMinutes;
+	int m_lastActivity;
+	int m_debug;
+	int m_nightHoursStart;
+	int m_nightHoursEnd;
 public:
 	MODCONSTRUCTOR(CColloquyMod) {
 		// init vars
 		m_bAttachedPush = true;
 
 		LoadRegistry();
- 
+
 		for (MCString::iterator it = BeginNV(); it != EndNV(); it++) {
 			CString sKey(it->first);
 
@@ -312,6 +319,25 @@ public:
 			sArg.Trim();
 			if ( sArg.TrimPrefix("attachedpush") ) {
 				m_bAttachedPush = sArg.ToBool();
+			}
+		}
+
+		//Loading stored stuff
+		m_idleAfterMinutes=0;
+		m_debug=0;
+		m_nightHoursStart=-1;
+		m_nightHoursEnd=-1;
+		for(MCString::iterator it = BeginNV(); it != EndNV(); it++)
+		{
+			if(it->first == "u:idle")
+			{
+				m_idleAfterMinutes = it->second.ToInt();
+			} else if (it->first == "u:nighthoursstart") {
+				m_nightHoursStart = it->second.ToInt();
+			} else if (it->first == "u:nighthoursend") {
+				m_nightHoursEnd = it->second.ToInt();
+			} else if (it->first == "u:debug") {
+				m_debug = it->second.ToInt();
 			}
 		}
 
@@ -439,9 +465,53 @@ public:
 		return CONTINUE;
 	}
 
+	virtual CString intToHours(int ihour) {
+		if (ihour<0) {
+			return "---";
+		}
+		int minutes = (ihour%60);
+		CString cMinutes;
+		if (minutes<10) {
+			cMinutes="0"+CString(minutes);
+		} else {
+			cMinutes=CString(minutes);
+		}
+		int hours= (ihour-minutes)/60;
+		CString cHour=CString(hours);
+		return cHour+":"+cMinutes;
+	}
+
+	virtual int hoursToInt(CString chour) {
+		int len=chour.length();
+		int colon=chour.find(":");
+		if (((colon==1) && (len==4)) || ((colon==2) && (len==5))) {//only valid hours
+			int hour;
+			int minutes;
+			if (colon==1) {
+				hour=atoi(chour.substr(0,1).c_str());
+				minutes=atoi(chour.substr(2,2).c_str());
+			} else {
+				hour=atoi(chour.substr(0,2).c_str());
+				minutes=atoi(chour.substr(3,2).c_str());
+			}
+			return hour*60+minutes;
+		} else {
+			return -1;
+		}
+
+	}
+
 	virtual void OnModCommand(const CString& sCommand) {
 		if (sCommand.Equals("HELP")) {
 			PutModule("Commands: HELP, LIST");
+			PutModule("Command: LIST");
+			PutModule("List devices that receive notifications.");
+			PutModule("Command: STATUS");
+			PutModule("Shows the active settings.");
+			PutModule("Command: SET idle <minutes>");
+			PutModule("Only send notifications to prowl if you have been idle for at least <minutes> or no client is connected to ZNC.");
+			PutModule("Command: SET nighthours <start> <end>");
+			PutModule("Don't send notifications after nighthours start and before nighthours end");
 		} else if (sCommand.Equals("LIST")) {
 			if (m_mspDevices.empty()) {
 				PutModule("You have no saved devices...");
@@ -488,6 +558,32 @@ public:
 
 				PutModule(Table);
 			}
+		} else if(sCommand.Token(0).Equals("SET")) {
+			const CString sKey = sCommand.Token(1).AsLower();
+			if (sKey == "idle") {
+				m_idleAfterMinutes=sCommand.Token(2).ToInt();
+				PutModule("Idle time set to '"+CString(m_idleAfterMinutes)+"'");
+			} else if (sKey == "debug") {
+				m_debug=sCommand.Token(2).ToInt();
+				PutModule("Debug set to '"+CString(m_debug)+"'");
+			} else if (sKey == "nighthours") {
+				m_nightHoursStart=hoursToInt(sCommand.Token(2));
+				m_nightHoursEnd=hoursToInt(sCommand.Token(3));
+				PutModule("Night Hours set to "+intToHours(m_nightHoursStart)+" - "+intToHours(m_nightHoursEnd));
+			} else {
+				PutModule("Unknown setting. Try HELP.");
+			}
+
+			//Save stored stuff
+			//ClearNV(); //Dangerous, NV holds devices
+			SetNV("u:idle", CString(m_idleAfterMinutes), false);
+			SetNV("u:debug", CString(m_debug), false);
+			SetNV("u:nighthoursstart", CString(m_nightHoursStart), false);
+			SetNV("u:nighthoursend", CString(m_nightHoursEnd), false);
+		} else if (sCommand.Token(0).Equals("STATUS")) {
+			PutModule("Current Status:");
+			PutModule("Idle after minutes: "+CString(m_idleAfterMinutes));
+			PutModule("Night Hours: "+intToHours(m_nightHoursStart)+" - "+intToHours(m_nightHoursEnd));
 		/*
 		} else if (sCommand.Token(0).Equals("REMKEYWORD")) {
 			CString sKeyword(sCommand.Token(1, true));
@@ -543,6 +639,32 @@ public:
 			return false;
 		}
 
+		//Check nightHours
+		bool bNightHours=false;
+		if ((m_nightHoursStart>-1) && (m_nightHoursEnd>-1)) {
+			time_t ww;
+			time(&ww);
+			struct tm* lt=localtime(&ww);
+			int minutes=lt->tm_hour*60+lt->tm_min;
+			if ((m_nightHoursStart && (minutes>=m_nightHoursStart)) || (m_nightHoursEnd && (minutes<m_nightHoursEnd))) {
+				bNightHours=true;
+			}
+			//PutModule(CString(m_nightHoursStart) + ";"  + CString(m_nightHoursEnd) + "=" + CString(minutes));
+		}
+		if (bNightHours) {
+			return false;
+		}
+
+
+		//Check idleTimer
+		bool bIsNotIdle = false;
+		if (m_idleAfterMinutes>0) {
+			bIsNotIdle = (m_lastActivity > (time(NULL)-m_idleAfterMinutes*60));
+		}
+		if (bIsNotIdle) {
+			return false;
+		}
+
 		bool bRet = true;
 		vector<CClient*>& vpClients = m_pUser->GetClients();
 
@@ -589,6 +711,9 @@ public:
 				}
 			}
 
+			if (m_debug) {
+			PutModule("debug: idleTest Pass... "+CString(m_lastActivity) + " < " + CString(time(NULL)-m_idleAfterMinutes*60)+" | #" +sChannel + " "+sMessage);
+			}
 			if (!pDevice->Push(sNick, sMessage, sChannel, bHilite, iBadge)) {
 				bRet = false;
 			}
@@ -609,9 +734,44 @@ public:
 		}
 	}
 
+
+	EModRet OnUserAction(CString& sTarget, CString& sMessage) {
+		m_lastActivity = time(NULL);
+		if (m_debug) {
+			PutModule("debug: lastActivity updated for UserAction to "+sTarget +" ("+CString(m_lastActivity)+")");
+		}
+		return CONTINUE;
+	}
+	EModRet OnUserMsg(CString& sTarget, CString& sMessage) {
+		m_lastActivity = time(NULL);
+		if (m_debug) {
+			PutModule("debug: lastActivity updated for UserMsg to "+sTarget +" ("+CString(m_lastActivity)+")");
+		}
+		return CONTINUE;
+	}
+	EModRet OnUserNotice(CString& sTarget, CString& sMessage) {
+		m_lastActivity = time(NULL);
+		if (m_debug) {
+			PutModule("debug: lastActivity updated for UserNotice to "+sTarget +" ("+CString(m_lastActivity)+")");
+		}
+		return CONTINUE;
+	}
+	EModRet OnUserJoin(CString& sChannel, CString& sKey) {
+		m_lastActivity = time(NULL);
+		if (m_debug) {
+			PutModule("debug: lastActivity updated for UserJoin to "+sChannel +" ("+CString(m_lastActivity)+")");
+		}
+		return CONTINUE;
+	}
+	EModRet OnUserPart(CString& sChannel, CString& sMessage) {
+		m_lastActivity = time(NULL);
+		if (m_debug) {
+			PutModule("debug: lastActivity updated for UserJoin to "+sChannel +" ("+CString(m_lastActivity)+")");
+		}
+		return CONTINUE;
+	}
 private:
 	map<CString, CDevice*>	m_mspDevices;	// map of token to device info for clients who have sent us PUSH info
 	bool	m_bAttachedPush;
 };
-
 MODULEDEFS(CColloquyMod, "Push privmsgs and highlights to your iPhone via Colloquy Mobile")

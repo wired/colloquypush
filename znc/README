@@ -35,4 +35,12 @@ that push is now loaded on ZNC for your device. You can also type
 "/msg *colloquy list" to see all of the devices that receive push 
 notifications from your ZNC account.
 
+2009/12/03
+---
+you can now set 'night' hours during which znc won't send you notifications,
+as well as an 'idle' duration that will have to pass before you receive
+any notifications.
+send a 'help' message to *colloquy for more instructions
+	"/msg *colloquy help"
+
 Note: badge clearing works now :)
