@@ -354,10 +354,15 @@ public:
 	virtual EModRet OnUserRaw(CString& sLine) {
 		// Trap "ISON *modname" and fake a reply or else colloquy won't let you communicate with *status or *module
 		// This is a hack in that it doesn't support multiple users
-		const CString& sStatusPrefix(CZNC::Get().GetStatusPrefix());
+		const CString& sStatusPrefix = m_pUser->GetStatusPrefix();
 
-		if (sLine.Equals("ISON " + sStatusPrefix, false, 5 + sStatusPrefix.size())) {
-			PutUser(":" + m_pUser->GetIRCServer() + " 303 " + m_pUser->GetIRCNick().GetNick() + " :" + sLine.Token(1, true));
+		// Assume if we encounter sStatusPrefix on first nick, only controlnicks follow if there are more then one
+		if (sLine.Equals("ISON " + sStatusPrefix, false, 5 + sStatusPrefix.size()) ||
+		    sLine.Equals("ISON :" + sStatusPrefix, false, 6 + sStatusPrefix.size())) {
+			CString sNicks = sLine.Token(1, true);
+			if(sNicks[0] == ':')
+				sNicks.LeftChomp();
+			PutUser(":" + m_pUser->GetIRCServer() + " 303 " + m_pUser->GetIRCNick().GetNick() + " :" + sNicks);
 
 			return HALTCORE;
 		}
@@ -658,7 +663,7 @@ public:
 
 		//Check idleTimer
 		bool bIsNotIdle = false;
-		// only check idle time if someone is attached
+ 		// only check idle time if someone is attached
 		if (m_idleAfterMinutes>0 && m_pUser->IsUserAttached()) {
 			bIsNotIdle = (m_lastActivity > (time(NULL)-m_idleAfterMinutes*60));
 		}
