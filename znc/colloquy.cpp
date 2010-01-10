@@ -663,7 +663,7 @@ public:
 
 		//Check idleTimer
 		bool bIsNotIdle = false;
- 		// only check idle time if someone is attached
+		// only check idle time if someone is attached
 		if (m_idleAfterMinutes>0 && m_pUser->IsUserAttached()) {
 			bIsNotIdle = (m_lastActivity > (time(NULL)-m_idleAfterMinutes*60));
 		}
