@@ -514,7 +514,7 @@ public:
 			PutModule("Command: STATUS");
 			PutModule("Shows the active settings.");
 			PutModule("Command: SET idle <minutes>");
-			PutModule("Only send notifications to prowl if you have been idle for at least <minutes> or no client is connected to ZNC.");
+			PutModule("Only send notifications to colloquy if you have been idle for at least <minutes> or no client is connected to ZNC.");
 			PutModule("Command: SET nighthours <start> <end>");
 			PutModule("Don't send notifications after nighthours start and before nighthours end");
 		} else if (sCommand.Equals("LIST")) {
