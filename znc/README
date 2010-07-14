@@ -4,6 +4,11 @@ Thanks to prozac we have a working znc module that pushes priv messages and hili
 	-attachedpush 0|1 	- when set to 0, znc won't push messages if
 				  another client is attached
 
+	-skipmessagecontent 0|1	- when set to 1, znc won't push the content of
+				  the message, only an indication that a
+				  message has been recieved, which channel and
+				  the sender.
+
 To install make sure you have znc installed and configured, then run the following:
 
 	$ wget http://github.com/wired/colloquypush/raw/master/znc/colloquy.cpp
@@ -17,6 +22,11 @@ or by typing "/msg *status loadmod colloquy"
   you have to add
 	-attachedpush 0
   in znc colloquy module's arguments box
+
+* if you don't want to get the content (body) of the message sent via push,
+  you have to add
+        -skipmessagecontent 1
+  in znc colloquy module's argument box
 
 to configure your Colloquy Mobile to use Push, follow the following instructions, quoted from:
 	http://colloquy.info/project/wiki/PushNotifications
