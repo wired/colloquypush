@@ -288,6 +288,7 @@ public:
 		// init vars
 		m_bAttachedPush = true;
                 m_bSkipMessageContent = false;
+		m_bAwayOnlyPush = false;
 
 		LoadRegistry();
 
@@ -322,6 +323,8 @@ public:
 				m_bAttachedPush = sArg.ToBool();
 			} else if ( sArg.TrimPrefix("skipmessagecontent") ) {
                                 m_bSkipMessageContent = sArg.ToBool();
+			} else if ( sArg.TrimPrefix("awayonlypush") ) {
+				m_bAwayOnlyPush = sArg.ToBool();
 			}
 		}
 
@@ -647,6 +650,11 @@ public:
 			return false;
 		}
 
+		CUser* pUser = GetUser();
+		if (pUser && m_bAwayOnlyPush && !pUser->IsIRCAway()) {
+			return false;
+		}
+
 		CString sPushMessage = sMessage;
 		if (m_bSkipMessageContent && !sMessage.Equals("")) {
 			sPushMessage = "";
@@ -793,5 +801,6 @@ private:
 	map<CString, CDevice*>	m_mspDevices;	// map of token to device info for clients who have sent us PUSH info
 	bool	m_bAttachedPush;
 	bool	m_bSkipMessageContent;
+	bool	m_bAwayOnlyPush;
 };
 MODULEDEFS(CColloquyMod, "Push privmsgs and highlights to your iPhone via Colloquy Mobile")
