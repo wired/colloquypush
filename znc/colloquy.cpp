@@ -287,6 +287,7 @@ public:
 	MODCONSTRUCTOR(CColloquyMod) {
 		// init vars
 		m_bAttachedPush = true;
+                m_bSkipMessageContent = false;
 
 		LoadRegistry();
 
@@ -319,6 +320,8 @@ public:
 			sArg.Trim();
 			if ( sArg.TrimPrefix("attachedpush") ) {
 				m_bAttachedPush = sArg.ToBool();
+			} else if ( sArg.TrimPrefix("skipmessagecontent") ) {
+                                m_bSkipMessageContent = sArg.ToBool();
 			}
 		}
 
@@ -644,6 +647,14 @@ public:
 			return false;
 		}
 
+		CString sPushMessage = sMessage;
+		if (m_bSkipMessageContent && !sMessage.Equals("")) {
+			sPushMessage = "";
+			if (!bHilite) {
+			    sPushMessage = "Private messsage from " + sNick;
+			}
+		}
+
 		//Check nightHours
 		bool bNightHours=false;
 		if ((m_nightHoursStart>-1) && (m_nightHoursEnd>-1)) {
@@ -714,13 +725,15 @@ public:
 
 				if (!bMatches) {
 					return false;
+				} else if (m_bSkipMessageContent) {
+					sPushMessage += "Highlighted message";
 				}
 			}
 
 			if (m_debug) {
 			PutModule("debug: idleTest Pass... "+CString(m_lastActivity) + " < " + CString(time(NULL)-m_idleAfterMinutes*60)+" | #" +sChannel + " "+sMessage);
 			}
-			if (!pDevice->Push(sNick, sMessage, sChannel, bHilite, iBadge)) {
+			if (!pDevice->Push(sNick, sPushMessage, sChannel, bHilite, iBadge)) {
 				bRet = false;
 			}
 		}
@@ -779,5 +792,6 @@ public:
 private:
 	map<CString, CDevice*>	m_mspDevices;	// map of token to device info for clients who have sent us PUSH info
 	bool	m_bAttachedPush;
+	bool	m_bSkipMessageContent;
 };
 MODULEDEFS(CColloquyMod, "Push privmsgs and highlights to your iPhone via Colloquy Mobile")
