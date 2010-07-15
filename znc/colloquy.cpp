@@ -650,9 +650,11 @@ public:
 			return false;
 		}
 
-		CUser* pUser = GetUser();
-		if (pUser && m_bAwayOnlyPush && !pUser->IsIRCAway()) {
-			return false;
+		if (iBadge != 0) {
+			CUser* pUser = GetUser();
+			if (pUser && m_bAwayOnlyPush && !pUser->IsIRCAway()) {
+				return false;
+			}
 		}
 
 		CString sPushMessage = sMessage;
