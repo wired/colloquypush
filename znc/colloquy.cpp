@@ -734,7 +734,7 @@ public:
 				if (!bMatches) {
 					return false;
 				} else if (m_bSkipMessageContent) {
-					sPushMessage += "Highlighted message";
+					sPushMessage = "Highlighted message";
 				}
 			}
 
