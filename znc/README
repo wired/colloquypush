@@ -14,6 +14,8 @@ Thanks to prozac we have a working znc module that pushes priv messages and hili
 				  in IRC. This can be useful if used with
 				  irssi (irssi_proxy) and screen_away plugin.
 
+	-ignorenetworkservices 0|1 - when set to 1, znc won't push messages from network services
+
 To install make sure you have znc installed and configured, then run the following:
 
 	$ wget http://github.com/wired/colloquypush/raw/master/znc/colloquy.cpp
