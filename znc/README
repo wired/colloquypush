@@ -16,6 +16,9 @@ Thanks to prozac we have a working znc module that pushes priv messages and hili
 
 	-ignorenetworkservices 0|1 - when set to 1, znc won't push messages from network services
 
+* all the arguments above can be set from with-in your IRC client by messaging *colloquy now
+  try /msg *colloquy help
+
 To install make sure you have znc installed and configured, then run the following:
 
 	$ wget http://github.com/wired/colloquypush/raw/master/znc/colloquy.cpp
@@ -26,14 +29,16 @@ you should now load the "colloquy" module either by enabling it in the web admin
 or by typing "/msg *status loadmod colloquy"
 
 * if you don't want to receive push notifications when another client is attached,
-  you have to add
+  you have to tell the module. either add
 	-attachedpush 0
-  in znc colloquy module's arguments box
+  in znc colloquy module's arguments box or send a message to *colloquy
+	/msg *colloquy attachedpush 0
 
 * if you don't want to get the content (body) of the message sent via push,
   you have to add
         -skipmessagecontent 1
-  in znc colloquy module's argument box
+  in znc colloquy module's argument box or send a mesage to *colloquy
+	/msg *colloquy skipmessagecontent 1
 
 to configure your Colloquy Mobile to use Push, follow the following instructions, quoted from:
 	http://colloquy.info/project/wiki/PushNotifications
@@ -51,6 +56,11 @@ Result: If all went well, you should get a message from *colloquy saying
 that push is now loaded on ZNC for your device. You can also type 
 "/msg *colloquy list" to see all of the devices that receive push 
 notifications from your ZNC account.
+
+2011/02/22
+---
+all options are manageable by messaging *colloquy now.
+note that module parameters will override any other settings.
 
 2009/12/03
 ---
