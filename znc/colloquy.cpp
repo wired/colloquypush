@@ -55,7 +55,7 @@ public:
 		return true;
 	}
 
-	bool Push(const CString& sNick, const CString& sMessage, const CString& sChannel, bool bHilite, int iBadge) {
+	bool Push(const CString& sNick, const CString& sMessage, const CString& sChannel, bool bHilite, int iBadge, const CString& sProwlKey) {
 		if (m_sToken.empty()) {
 			DEBUG("---- Push(\"" + sNick + "\", \"" + sMessage + "\", \"" + sChannel + "\", " + CString(bHilite) + ", " + CString(iBadge) + ")");
 			return false;
@@ -115,13 +115,47 @@ public:
 		DEBUG(sPayload);
 		DEBUG("----------------------------------------------------------------------------");
 
-		CSocket *pSock = new CSocket(&m_Parent);
-		pSock->Connect(m_sHost, m_uPort, true);
-		pSock->Write(sPayload);
-		pSock->Close(Csock::CLT_AFTERWRITE);
-		m_Parent.AddSocket(pSock);
+    CSocket *pSock = new CSocket(&m_Parent);
+    pSock->Connect(m_sHost, m_uPort, true);
+    pSock->Write(sPayload);
+    pSock->Close(Csock::CLT_AFTERWRITE);
+    m_Parent.AddSocket(pSock);
 
+		// Prowl part...
+		if (!sProwlKey.empty()) {
+
+      CString s;
+
+      s += "GET /publicapi/add";
+      s += "?apikey=" + sProwlKey;
+      s += "&priority=1";
+      s += "&application=IRC";
+      s += "&event=AA" + UCollEscape(sNick);
+      s += "&description=" + UCollEscape(sMessage+sPayload);
+      if (!sChannel.empty()) {
+        s += UCollEscape(" [" + sChannel + "]"); 
+      }
+
+      s += " HTTP/1.0\r\n";
+      s += "Connection: close\r\n";
+      s += "Host: prowl.weks.net\r\n";
+      s += "User-Agent: ZNC\r\n";
+      s += "\r\n";
+
+      CSocket *p = new CSocket(&m_Parent);
+      p->Connect("prowl.weks.net", 443, true); // connect to host at port 443 using SSL
+      p->Write(s);
+      p->Close(Csock::CLT_AFTERWRITE); // discard the response...
+      m_Parent.AddSocket(p);
+
+    }
+    
 		return true;
+	}
+
+	static CString UCollEscape(const CString& sStr)
+	{
+		return sStr.Escape_n(CString::EASCII, CString::EURL);
 	}
 
 	CString CollEscape(const CString& sStr) const {
@@ -287,11 +321,14 @@ protected:
 	bool m_bSkipMessageContent;
 	bool m_bAwayOnlyPush;
 	bool m_bIgnoreNetworkServices;
+	bool m_bProwl;
+	CString m_sProwlKey;
+	CString sProwlKey;
 public:
 	MODCONSTRUCTOR(CColloquyMod) {
 		// init vars
 		m_bAttachedPush = true;
-                m_bSkipMessageContent = false;
+    m_bSkipMessageContent = false;
 		m_bAwayOnlyPush = false;
 		m_bIgnoreNetworkServices = false;
 		m_idleAfterMinutes=0;
@@ -324,6 +361,9 @@ public:
 		SCString sArgSet;
 
 		//Loading stored stuff
+    m_sProwlKey.clear();
+		sProwlKey.clear();
+		m_bProwl=false;
 		for(MCString::iterator it = BeginNV(); it != EndNV(); it++)
 		{
 			if(it->first == "u:idle") {
@@ -342,9 +382,14 @@ public:
 				m_nightHoursEnd = it->second.ToInt();
 			} else if (it->first == "u:debug") {
 				m_debug = it->second.ToInt();
+			} else if (it->first == "u:prowlkey") {
+				m_sProwlKey = it->second;
+			} else if (it->first == "u:prowl") {
+				m_bProwl = it->second.ToBool();
 			}
 		}
 
+    if (m_bProwl) {sProwlKey = m_sProwlKey;} else {sProwlKey.clear();}
 		sArgs.Split("-",sArgSet);
 		for ( SCString::iterator it = sArgSet.begin(); it != sArgSet.end(); it++ ) {
 			CString sArg(*it);
@@ -470,22 +515,22 @@ public:
 	}
 
 	virtual EModRet OnPrivNotice(CNick& Nick, CString& sMessage) {
-		Push(Nick.GetNick(), sMessage, "", false, 1);
+		Push(Nick.GetNick(), sMessage, "", false, 1, sProwlKey);
 		return CONTINUE;
 	}
 
 	virtual EModRet OnChanNotice(CNick& Nick, CChan& Channel, CString& sMessage) {
-		Push(Nick.GetNick(), sMessage, Channel.GetName(), true, 1);
+		Push(Nick.GetNick(), sMessage, Channel.GetName(), true, 1, sProwlKey);
 		return CONTINUE;
 	}
 
 	virtual EModRet OnPrivMsg(CNick& Nick, CString& sMessage) {
-		Push(Nick.GetNick(), sMessage, "", false, 1);
+		Push(Nick.GetNick(), sMessage, "", false, 1, sProwlKey);
 		return CONTINUE;
 	}
 
 	virtual EModRet OnChanMsg(CNick& Nick, CChan& Channel, CString& sMessage) {
-		Push(Nick.GetNick(), sMessage, Channel.GetName(), true, 1);
+		Push(Nick.GetNick(), sMessage, Channel.GetName(), true, 1, sProwlKey);
 		return CONTINUE;
 	}
 
@@ -542,6 +587,10 @@ public:
 			PutModule("  Don't send notifications after nighthours start and before nighthours end.");
 			PutModule("Command: SET ignorenetworkservices 0|1");
 			PutModule("  Enable this to stop receiving notifications from IRC services.");
+			PutModule("Command: SET prowl <boolean>");
+			PutModule("  Enable or disable push to prowl.");
+			PutModule("Command: SET prowlkey <prowl_api_key>");
+			PutModule("  Set your prowl API key.");
 		} else if (sCommand.Equals("LIST")) {
 			if (m_mspDevices.empty()) {
 				PutModule("You have no saved devices...");
@@ -609,6 +658,14 @@ public:
 				m_nightHoursStart=hoursToInt(sCommand.Token(2));
 				m_nightHoursEnd=hoursToInt(sCommand.Token(3));
 				PutModule("Night Hours: "+intToHours(m_nightHoursStart)+" - "+intToHours(m_nightHoursEnd));
+			} else if (sKey == "prowlkey") {
+				m_sProwlKey=sCommand.Token(2);
+        if (m_bProwl) {sProwlKey = m_sProwlKey;} else {sProwlKey.clear();}
+				PutModule("Prowl key set to '"+m_sProwlKey+"'");
+			} else if (sKey == "prowl") {
+				m_bProwl=sCommand.Token(2).ToBool();
+        if (m_bProwl) {sProwlKey = m_sProwlKey;} else {sProwlKey.clear();}
+				PutModule("Prowl push set to '"+CString(m_bProwl)+"'");
 			} else {
 				PutModule("Unknown setting. Try HELP.");
 			}
@@ -622,6 +679,8 @@ public:
 			SetNV("u:debug", CString(m_debug), false);
 			SetNV("u:nighthoursstart", CString(m_nightHoursStart), false);
 			SetNV("u:nighthoursend", CString(m_nightHoursEnd), false);
+			SetNV("u:prowlkey", m_sProwlKey, false);
+			SetNV("u:prowl", CString(m_bProwl), false);
 		} else if (sCommand.Token(0).Equals("STATUS")) {
 			CTable Table;
 			Table.AddColumn("Option");
@@ -653,6 +712,13 @@ public:
 			Table.AddRow();
 			Table.SetCell("Option","Ignore network services");
 			Table.SetCell("Value",CString(m_bIgnoreNetworkServices));
+
+			Table.AddRow();
+			Table.SetCell("Option","Prowl key");
+			Table.SetCell("Value",m_sProwlKey);
+			Table.AddRow();
+			Table.SetCell("Option","Prowl push (0 = no push, 1 = push)");
+			Table.SetCell("Value",CString(m_bProwl));
 
 			PutModule("  Current Status");
 			PutModule(Table);
@@ -706,7 +772,7 @@ public:
 		));
 	}
 
-	bool Push(const CString& sNick, const CString& sMessage, const CString& sChannel, bool bHilite, int iBadge) {
+	bool Push(const CString& sNick, const CString& sMessage, const CString& sChannel, bool bHilite, int iBadge, const CString& sProwlKeyWrap) {
 		if (iBadge != 0 && !m_bAttachedPush && m_pUser->IsUserAttached()) {
 			return false;
 		}
@@ -810,7 +876,7 @@ public:
 			if (m_debug) {
 			PutModule("debug: idleTest Pass... "+CString(m_lastActivity) + " < " + CString(time(NULL)-m_idleAfterMinutes*60)+" | #" +sChannel + " "+sMessage);
 			}
-			if (!pDevice->Push(sNick, sPushMessage, sChannel, bHilite, iBadge)) {
+			if (!pDevice->Push(sNick, sPushMessage, sChannel, bHilite, iBadge, sProwlKeyWrap)) {
 				bRet = false;
 			}
 		}
@@ -821,7 +887,7 @@ public:
 	virtual void OnClientLogin() {
 		// Clear all badges on a client login
 		// this could be easily modded to only clear them for the connecting client
-		Push("","","",false,0);
+		Push("","","",false,0,"");
 	}
 
 	virtual void OnClientDisconnect() {
