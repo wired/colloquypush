@@ -371,21 +371,6 @@ public:
 	}
 
 	virtual EModRet OnUserRaw(CString& sLine) {
-		// Trap "ISON *modname" and fake a reply or else colloquy won't let you communicate with *status or *module
-		// This is a hack in that it doesn't support multiple users
-		const CString& sStatusPrefix = m_pUser->GetStatusPrefix();
-
-		// Assume if we encounter sStatusPrefix on first nick, only controlnicks follow if there are more then one
-		if (sLine.Equals("ISON " + sStatusPrefix, false, 5 + sStatusPrefix.size()) ||
-		    sLine.Equals("ISON :" + sStatusPrefix, false, 6 + sStatusPrefix.size())) {
-			CString sNicks = sLine.Token(1, true);
-			if(sNicks[0] == ':')
-				sNicks.LeftChomp();
-			PutUser(":" + m_pUser->GetIRCServer() + " 303 " + m_pUser->GetIRCNick().GetNick() + " :" + sNicks);
-
-			return HALTCORE;
-		}
-
 		// Trap the PUSH messages that colloquy sends to give us info about the client
 		if (sLine.TrimPrefix("PUSH ")) {
 			if (sLine.TrimPrefix("add-device ")) {
