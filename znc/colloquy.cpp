@@ -318,6 +318,22 @@ public:
 				DEBUG("   --- Unknown registry entry: [" << it->first << "]");
 			}
 		}
+
+		AddHelpCommand();
+		AddCommand("List",			static_cast<CModCommand::ModCmdFunc>(&CColloquyMod::ListCommand),
+			"",						"List devices that receive notifications.");
+		AddCommand("Status",		static_cast<CModCommand::ModCmdFunc>(&CColloquyMod::StatusCommand),
+			"",						"Shows the active settings.");
+		AddCommand("awayonlypush",	static_cast<CModCommand::ModCmdFunc>(&CColloquyMod::SetCommand),
+			"0|1",					"If enabled, send notifications only if away.");
+		AddCommand("attachedpush",	static_cast<CModCommand::ModCmdFunc>(&CColloquyMod::SetCommand),
+			"0|1",					"If enabled, push notifications will be sent even if a client is connected.");
+		AddCommand("idle",			static_cast<CModCommand::ModCmdFunc>(&CColloquyMod::SetCommand),
+			"<minutes>",			"If attachedpush is enabled, wait for 'idle' minutes before pushing messages.");
+		AddCommand("nighthours",	static_cast<CModCommand::ModCmdFunc>(&CColloquyMod::SetCommand),
+			"<start> <end>",		"Don't send notifications after nighthours start and before nighthours end.");
+		AddCommand("ignorenetworkservices",	static_cast<CModCommand::ModCmdFunc>(&CColloquyMod::SetCommand),
+			"0|1",					"Enable this to stop receiving notifications from IRC services.");
 	}
 
 	virtual bool OnLoad(const CString& sArgs, CString& sErrorMsg) {
@@ -368,6 +384,124 @@ public:
 			it->second->Save();
 			delete it->second;
 		}
+	}
+
+	void ListCommand(const CString &sCommand) {
+		if (m_mspDevices.empty()) {
+			PutModule("You have no saved devices...");
+			PutModule("Connect to znc using your mobile colloquy client...");
+		   	PutModule("Make sure to enable push if it isn't already!");
+		} else {
+			CTable Table;
+			Table.AddColumn("Phone");
+			Table.AddColumn("Connection");
+			Table.AddColumn("MsgSound");
+			Table.AddColumn("HiliteSound");
+			Table.AddColumn("Status");
+			Table.AddColumn("Keywords");
+
+			for (map<CString, CDevice*>::iterator it = m_mspDevices.begin(); it != m_mspDevices.end(); it++) {
+				CDevice* pDevice = it->second;
+
+				Table.AddRow();
+				Table.SetCell("Phone", pDevice->GetName());
+				Table.SetCell("Connection", pDevice->GetConnectionName());
+				Table.SetCell("MsgSound", pDevice->GetMessageSound());
+				Table.SetCell("HiliteSound", pDevice->GetHiliteSound());
+				Table.SetCell("Status", pDevice->HasFlag(CDevice::Disabled) ? "Disabled" : (pDevice->IsConnected() ? "Connected" : "Offline"));
+
+				const SCString& ssWords = pDevice->GetKeywords();
+
+				if (!ssWords.empty()) {
+					CString sWords;
+					sWords = "[";
+
+					for (SCString::iterator it2 = ssWords.begin(); it2 != ssWords.end(); it2++) {
+						if (it2 != ssWords.begin()) {
+							sWords += "]  [";
+						}
+
+						sWords += *it2;
+					}
+
+					sWords += "]";
+
+					Table.SetCell("Keywords", sWords);
+				}
+			}
+
+			PutModule(Table);
+		}
+	}
+
+	void StatusCommand(const CString &sCommand) {
+		CTable Table;
+		Table.AddColumn("Option");
+		Table.AddColumn("Value");
+
+		Table.AddRow();
+		Table.SetCell("Option","Push only if away");
+		Table.SetCell("Value",CString(m_bAwayOnlyPush));
+
+		Table.AddRow();
+		Table.SetCell("Option","Push even if clients are attached");
+		Table.SetCell("Value",CString(m_bAttachedPush));
+
+		Table.AddRow();
+		Table.SetCell("Option","- only if idle for");
+		if ( m_idleAfterMinutes > 0 )
+			Table.SetCell("Value",CString(m_idleAfterMinutes) + " minutes");
+		else
+			Table.SetCell("Value","Always");
+
+		Table.AddRow();
+		Table.SetCell("Option","");
+		Table.SetCell("Value","");
+
+		Table.AddRow();
+		Table.SetCell("Option","Night Hours (no push)");
+		Table.SetCell("Value",intToHours(m_nightHoursStart)+" - "+intToHours(m_nightHoursEnd));
+
+		Table.AddRow();
+		Table.SetCell("Option","Ignore network services");
+		Table.SetCell("Value",CString(m_bIgnoreNetworkServices));
+
+		PutModule("  Current Status");
+		PutModule(Table);
+	}
+
+	void SetCommand(const CString &sCommand) {
+		const CString sKey = sCommand.Token(0).AsLower();
+		if (sKey == "idle") {
+			m_idleAfterMinutes=sCommand.Token(1).ToInt();
+			PutModule("Idle time: '"+CString(m_idleAfterMinutes)+"'");
+		} else if ( sKey == "awayonlypush" ) {
+			m_bAwayOnlyPush=sCommand.Token(1).ToBool();
+			PutModule("Push only if away: '"+CString(m_bAwayOnlyPush)+"'");
+		} else if ( sKey == "attachedpush" ) {
+			m_bAttachedPush=sCommand.Token(1).ToBool();
+			PutModule("Push even if clients are attached: '"+CString(m_bAttachedPush)+"'");
+		} else if ( sKey == "ignorenetworkservices" ) {
+			m_bIgnoreNetworkServices=sCommand.Token(1).ToBool();
+			PutModule("Ignore network services: '"+CString(m_bIgnoreNetworkServices)+"'");
+		} else if (sKey == "debug") {
+			m_debug=sCommand.Token(1).ToInt();
+			PutModule("Debug: '"+CString(m_debug)+"'");
+		} else if (sKey == "nighthours") {
+			m_nightHoursStart=hoursToInt(sCommand.Token(1));
+			m_nightHoursEnd=hoursToInt(sCommand.Token(2));
+			PutModule("Night Hours: "+intToHours(m_nightHoursStart)+" - "+intToHours(m_nightHoursEnd));
+		}
+
+		//Save stored stuff
+		//ClearNV(); //Dangerous, NV holds devices
+		SetNV("u:idle", CString(m_idleAfterMinutes), false);
+		SetNV("u:awayonlypush", CString(m_bAwayOnlyPush), false);
+		SetNV("u:attachedpush", CString(m_bAttachedPush), false);
+		SetNV("u:ignorenetworkservices", CString(m_bIgnoreNetworkServices), false);
+		SetNV("u:debug", CString(m_debug), false);
+		SetNV("u:nighthoursstart", CString(m_nightHoursStart), false);
+		SetNV("u:nighthoursend", CString(m_nightHoursEnd), false);
 	}
 
 	virtual EModRet OnUserRaw(CString& sLine) {
@@ -523,178 +657,6 @@ public:
 			return -1;
 		}
 
-	}
-
-	virtual void OnModCommand(const CString& sCommand) {
-		if (sCommand.Equals("HELP")) {
-			PutModule("Commands: HELP, LIST, SET <option>");
-			PutModule("Command: LIST");
-			PutModule("  List devices that receive notifications.");
-			PutModule("Command: STATUS");
-			PutModule("  Shows the active settings.");
-			PutModule("Command: SET awayonlypush 0|1");
-			PutModule("  If enabled, send notifications only if away.");
-			PutModule("Command: SET attachedpush 0|1");
-			PutModule("  If enabled, push notifications will be sent even if a client is connected.");
-			PutModule("Command: SET idle <minutes>");
-			PutModule("  If attachedpush is enabled, wait for 'idle' minutes before pushing messages.");
-			PutModule("Command: SET nighthours <start> <end>");
-			PutModule("  Don't send notifications after nighthours start and before nighthours end.");
-			PutModule("Command: SET ignorenetworkservices 0|1");
-			PutModule("  Enable this to stop receiving notifications from IRC services.");
-		} else if (sCommand.Equals("LIST")) {
-			if (m_mspDevices.empty()) {
-				PutModule("You have no saved devices...");
-				PutModule("Connect to znc using your mobile colloquy client...");
-			   	PutModule("Make sure to enable push if it isn't already!");
-			} else {
-				CTable Table;
-				Table.AddColumn("Phone");
-				Table.AddColumn("Connection");
-				Table.AddColumn("MsgSound");
-				Table.AddColumn("HiliteSound");
-				Table.AddColumn("Status");
-				Table.AddColumn("Keywords");
-
-				for (map<CString, CDevice*>::iterator it = m_mspDevices.begin(); it != m_mspDevices.end(); it++) {
-					CDevice* pDevice = it->second;
-
-					Table.AddRow();
-					Table.SetCell("Phone", pDevice->GetName());
-					Table.SetCell("Connection", pDevice->GetConnectionName());
-					Table.SetCell("MsgSound", pDevice->GetMessageSound());
-					Table.SetCell("HiliteSound", pDevice->GetHiliteSound());
-					Table.SetCell("Status", pDevice->HasFlag(CDevice::Disabled) ? "Disabled" : (pDevice->IsConnected() ? "Connected" : "Offline"));
-
-					const SCString& ssWords = pDevice->GetKeywords();
-
-					if (!ssWords.empty()) {
-						CString sWords;
-						sWords = "[";
-
-						for (SCString::iterator it2 = ssWords.begin(); it2 != ssWords.end(); it2++) {
-							if (it2 != ssWords.begin()) {
-								sWords += "]  [";
-							}
-
-							sWords += *it2;
-						}
-
-						sWords += "]";
-
-						Table.SetCell("Keywords", sWords);
-					}
-				}
-
-				PutModule(Table);
-			}
-		} else if(sCommand.Token(0).Equals("SET")) {
-			const CString sKey = sCommand.Token(1).AsLower();
-			if (sKey == "idle") {
-				m_idleAfterMinutes=sCommand.Token(2).ToInt();
-				PutModule("Idle time: '"+CString(m_idleAfterMinutes)+"'");
-			} else if ( sKey == "awayonlypush" ) {
-				m_bAwayOnlyPush=sCommand.Token(2).ToBool();
-				PutModule("Push only if away: '"+CString(m_bAwayOnlyPush)+"'");
-			} else if ( sKey == "attachedpush" ) {
-				m_bAttachedPush=sCommand.Token(2).ToBool();
-				PutModule("Push even if clients are attached: '"+CString(m_bAttachedPush)+"'");
-			} else if ( sKey == "ignorenetworkservices" ) {
-				m_bIgnoreNetworkServices=sCommand.Token(2).ToBool();
-				PutModule("Ignore network services: '"+CString(m_bIgnoreNetworkServices)+"'");
-			} else if (sKey == "debug") {
-				m_debug=sCommand.Token(2).ToInt();
-				PutModule("Debug: '"+CString(m_debug)+"'");
-			} else if (sKey == "nighthours") {
-				m_nightHoursStart=hoursToInt(sCommand.Token(2));
-				m_nightHoursEnd=hoursToInt(sCommand.Token(3));
-				PutModule("Night Hours: "+intToHours(m_nightHoursStart)+" - "+intToHours(m_nightHoursEnd));
-			} else {
-				PutModule("Unknown setting. Try HELP.");
-			}
-
-			//Save stored stuff
-			//ClearNV(); //Dangerous, NV holds devices
-			SetNV("u:idle", CString(m_idleAfterMinutes), false);
-			SetNV("u:awayonlypush", CString(m_bAwayOnlyPush), false);
-			SetNV("u:attachedpush", CString(m_bAttachedPush), false);
-			SetNV("u:ignorenetworkservices", CString(m_bIgnoreNetworkServices), false);
-			SetNV("u:debug", CString(m_debug), false);
-			SetNV("u:nighthoursstart", CString(m_nightHoursStart), false);
-			SetNV("u:nighthoursend", CString(m_nightHoursEnd), false);
-		} else if (sCommand.Token(0).Equals("STATUS")) {
-			CTable Table;
-			Table.AddColumn("Option");
-			Table.AddColumn("Value");
-
-			Table.AddRow();
-			Table.SetCell("Option","Push only if away");
-			Table.SetCell("Value",CString(m_bAwayOnlyPush));
-
-			Table.AddRow();
-			Table.SetCell("Option","Push even if clients are attached");
-			Table.SetCell("Value",CString(m_bAttachedPush));
-
-			Table.AddRow();
-			Table.SetCell("Option","- only if idle for");
-			if ( m_idleAfterMinutes > 0 )
-				Table.SetCell("Value",CString(m_idleAfterMinutes) + " minutes");
-			else
-				Table.SetCell("Value","Always");
-
-			Table.AddRow();
-			Table.SetCell("Option","");
-			Table.SetCell("Value","");
-
-			Table.AddRow();
-			Table.SetCell("Option","Night Hours (no push)");
-			Table.SetCell("Value",intToHours(m_nightHoursStart)+" - "+intToHours(m_nightHoursEnd));
-
-			Table.AddRow();
-			Table.SetCell("Option","Ignore network services");
-			Table.SetCell("Value",CString(m_bIgnoreNetworkServices));
-
-			PutModule("  Current Status");
-			PutModule(Table);
-		/*
-		} else if (sCommand.Token(0).Equals("REMKEYWORD")) {
-			CString sKeyword(sCommand.Token(1, true));
-
-			if (sKeyword.empty()) {
-				PutModule("Usage: RemKeyWord <keyword/phrase>");
-				return;
-			} else {
-				// @todo probably want to make this global and let each device manage its own keywords
-				for (map<CString, CDevice*>::iterator it = m_mspDevices.begin(); it != m_mspDevices.end(); it++) {
-					it->second->RemKeyword(sKeyword);
-				}
-
-				PutModule("Removed keyword [" + sKeyword + "]");
-			}
-		} else if (sCommand.Token(0).Equals("ADDKEYWORD")) {
-			CString sKeyword(sCommand.Token(1, true));
-
-			if (sKeyword.empty()) {
-				PutModule("Usage: AddKeyWord <keyword/phrase>");
-				return;
-			} else {
-				// @todo probably want to make this global and let each device manage its own keywords
-				for (map<CString, CDevice*>::iterator it = m_mspDevices.begin(); it != m_mspDevices.end(); it++) {
-					it->second->AddKeyword(sKeyword);
-				}
-
-				PutModule("Added keyword [" + sKeyword + "]");
-			}
-		} else if (sCommand.Equals("LISTNV")) {
-			if (BeginNV() == EndNV()) {
-				PutModule("No NVs!");
-			} else {
-				for (MCString::iterator it = BeginNV(); it != EndNV(); it++) {
-					PutModule(it->first + ": " + it->second);
-				}
-			}
-		*/
-		}
 	}
 
 	bool Test(const CString& sKeyWord, const CString& sString) {
