@@ -6,13 +6,18 @@
  * by the Free Software Foundation.
  */
 
-#include "znc.h"
-#include "Chan.h"
-#include "User.h"
-#include "Modules.h"
+#include <znc/znc.h>
+#include <znc/IRCNetwork.h>
+#include <znc/Chan.h>
+#include <znc/User.h>
+#include <znc/Modules.h>
 #include <time.h>
 
-#define REQUIRESSL		1
+#define REQUIRESSL 1
+
+using std::set;
+using std::map;
+using std::vector;
 
 class CDevice {
 public:
@@ -291,7 +296,7 @@ public:
 	MODCONSTRUCTOR(CColloquyMod) {
 		// init vars
 		m_bAttachedPush = true;
-                m_bSkipMessageContent = false;
+		m_bSkipMessageContent = false;
 		m_bAwayOnlyPush = false;
 		m_bIgnoreNetworkServices = false;
 		m_idleAfterMinutes=0;
@@ -352,7 +357,7 @@ public:
 			if ( sArg.TrimPrefix("attachedpush") ) {
 				m_bAttachedPush = sArg.ToBool();
 			} else if ( sArg.TrimPrefix("skipmessagecontent") ) {
-                                m_bSkipMessageContent = sArg.ToBool();
+				m_bSkipMessageContent = sArg.ToBool();
 			} else if ( sArg.TrimPrefix("awayonlypush") ) {
 				m_bAwayOnlyPush = sArg.ToBool();
 			} else if ( sArg.TrimPrefix("ignorenetworkservices") ) {
@@ -381,7 +386,7 @@ public:
 			CString sNicks = sLine.Token(1, true);
 			if(sNicks[0] == ':')
 				sNicks.LeftChomp();
-			PutUser(":" + m_pUser->GetIRCServer() + " 303 " + m_pUser->GetIRCNick().GetNick() + " :" + sNicks);
+			PutUser(":" + GetNetwork()->GetIRCServer() + " 303 " + GetNetwork()->GetIRCNick().GetNick() + " :" + sNicks);
 
 			return HALTCORE;
 		}
@@ -546,7 +551,7 @@ public:
 			if (m_mspDevices.empty()) {
 				PutModule("You have no saved devices...");
 				PutModule("Connect to znc using your mobile colloquy client...");
-			   	PutModule("Make sure to enable push if it isn't already!");
+				PutModule("Make sure to enable push if it isn't already!");
 			} else {
 				CTable Table;
 				Table.AddColumn("Phone");
@@ -713,7 +718,7 @@ public:
 
 		if (iBadge != 0) {
 			CUser* pUser = GetUser();
-			if (pUser && m_bAwayOnlyPush && !pUser->IsIRCAway()) {
+			if (pUser && m_bAwayOnlyPush && !(GetNetwork()->IsIRCAway())) {
 				return false;
 			}
 		}
@@ -760,7 +765,7 @@ public:
 		}
 
 		bool bRet = true;
-		vector<CClient*>& vpClients = m_pUser->GetClients();
+		vector<CClient*>& vpClients = GetNetwork()->GetClients();
 
 		// Cycle through all of the cached devices
 		for (map<CString, CDevice*>::iterator it = m_mspDevices.begin(); it != m_mspDevices.end(); it++) {
@@ -785,7 +790,7 @@ public:
 			// If it's a highlight, then we need to make sure it matches a highlited word
 			if (bHilite) {
 				// Test our current irc nick
-				const CString& sMyNick(m_pUser->GetIRCNick().GetNick());
+				const CString& sMyNick(GetNetwork()->GetIRCNick().GetNick());
 				bool bMatches = Test(sMyNick, sMessage) || Test(sMyNick + "?*", sMessage);
 
 				// If our nick didn't match, test the list of keywords for this device
