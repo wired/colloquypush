@@ -614,6 +614,9 @@ public:
 				m_nightHoursStart=hoursToInt(sCommand.Token(2));
 				m_nightHoursEnd=hoursToInt(sCommand.Token(3));
 				PutModule("Night Hours: "+intToHours(m_nightHoursStart)+" - "+intToHours(m_nightHoursEnd));
+			}	else if ( sKey == "skipmessagecontent" ) {
+				m_bSkipMessageContent=sCommand.Token(2).ToBool();
+				PutModule("Skip Message Content: '"+CString(m_bSkipMessageContent)+"'");
 			} else {
 				PutModule("Unknown setting. Try HELP.");
 			}
@@ -623,6 +626,7 @@ public:
 			SetNV("u:idle", CString(m_idleAfterMinutes), false);
 			SetNV("u:awayonlypush", CString(m_bAwayOnlyPush), false);
 			SetNV("u:attachedpush", CString(m_bAttachedPush), false);
+			SetNV("u:skipmessagecontent", CString(m_bSkipMessageContent), false);
 			SetNV("u:ignorenetworkservices", CString(m_bIgnoreNetworkServices), false);
 			SetNV("u:debug", CString(m_debug), false);
 			SetNV("u:nighthoursstart", CString(m_nightHoursStart), false);
