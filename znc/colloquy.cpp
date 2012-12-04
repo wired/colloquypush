@@ -541,6 +541,8 @@ public:
 			PutModule("  If enabled, send notifications only if away.");
 			PutModule("Command: SET attachedpush 0|1");
 			PutModule("  If enabled, push notifications will be sent even if a client is connected.");
+			PutModule("Command: SET skipmessagecontent 0|1");
+			PutModule("  If enabled, znc won't push the content of the message.");
 			PutModule("Command: SET idle <minutes>");
 			PutModule("  If attachedpush is enabled, wait for 'idle' minutes before pushing messages.");
 			PutModule("Command: SET nighthours <start> <end>");
@@ -643,6 +645,10 @@ public:
 			Table.AddRow();
 			Table.SetCell("Option","Push even if clients are attached");
 			Table.SetCell("Value",CString(m_bAttachedPush));
+
+			Table.AddRow();
+			Table.SetCell("Option","Skip Message Content");
+			Table.SetCell("Value",CString(m_bSkipMessageContent));
 
 			Table.AddRow();
 			Table.SetCell("Option","- only if idle for");
