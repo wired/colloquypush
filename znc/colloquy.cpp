@@ -541,6 +541,8 @@ public:
 			PutModule("  If enabled, send notifications only if away.");
 			PutModule("Command: SET attachedpush 0|1");
 			PutModule("  If enabled, push notifications will be sent even if a client is connected.");
+			PutModule("Command: SET skipmessagecontent 0|1");
+			PutModule("  If enabled, znc won't push the content of the message.");
 			PutModule("Command: SET idle <minutes>");
 			PutModule("  If attachedpush is enabled, wait for 'idle' minutes before pushing messages.");
 			PutModule("Command: SET nighthours <start> <end>");
@@ -614,6 +616,9 @@ public:
 				m_nightHoursStart=hoursToInt(sCommand.Token(2));
 				m_nightHoursEnd=hoursToInt(sCommand.Token(3));
 				PutModule("Night Hours: "+intToHours(m_nightHoursStart)+" - "+intToHours(m_nightHoursEnd));
+			}	else if ( sKey == "skipmessagecontent" ) {
+				m_bSkipMessageContent=sCommand.Token(2).ToBool();
+				PutModule("Skip Message Content: '"+CString(m_bSkipMessageContent)+"'");
 			} else {
 				PutModule("Unknown setting. Try HELP.");
 			}
@@ -623,6 +628,7 @@ public:
 			SetNV("u:idle", CString(m_idleAfterMinutes), false);
 			SetNV("u:awayonlypush", CString(m_bAwayOnlyPush), false);
 			SetNV("u:attachedpush", CString(m_bAttachedPush), false);
+			SetNV("u:skipmessagecontent", CString(m_bSkipMessageContent), false);
 			SetNV("u:ignorenetworkservices", CString(m_bIgnoreNetworkServices), false);
 			SetNV("u:debug", CString(m_debug), false);
 			SetNV("u:nighthoursstart", CString(m_nightHoursStart), false);
@@ -639,6 +645,10 @@ public:
 			Table.AddRow();
 			Table.SetCell("Option","Push even if clients are attached");
 			Table.SetCell("Value",CString(m_bAttachedPush));
+
+			Table.AddRow();
+			Table.SetCell("Option","Skip Message Content");
+			Table.SetCell("Value",CString(m_bSkipMessageContent));
 
 			Table.AddRow();
 			Table.SetCell("Option","- only if idle for");
