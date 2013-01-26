@@ -884,4 +884,4 @@ public:
 private:
 	map<CString, CDevice*>	m_mspDevices;	// map of token to device info for clients who have sent us PUSH info
 };
-MODULEDEFS(CColloquyMod, "Push privmsgs and highlights to your iPhone via Colloquy Mobile")
+MODULEDEFS(CColloquyMod, "Push privmsgs and highlights to your iOS device via Colloquy Mobile")
