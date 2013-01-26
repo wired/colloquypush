@@ -734,7 +734,7 @@ public:
 		}
 
 		if ( m_bIgnoreNetworkServices ) {
-			if ( sNick.Equals("NickServ") or sNick.Equals("ChanServ") or sNick.Equals("MemoServ") ) {
+			if ( sNick.Equals("NickServ") or sNick.Equals("ChanServ") or sNick.Equals("MemoServ") or sNick.Equals("HostServ") ) {
 				return false;
 			}
 		}
