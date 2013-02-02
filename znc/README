@@ -57,6 +57,9 @@ that push is now loaded on ZNC for your device. You can also type
 "/msg *colloquy list" to see all of the devices that receive push 
 notifications from your ZNC account.
 
+Manually kill and restart Colloquy if your device is not automatically
+registered. Ensure Colloquy has been granted push notification privileges.
+
 2011/02/22
 ---
 all options are manageable by messaging *colloquy now.
