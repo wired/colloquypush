@@ -286,8 +286,6 @@ protected:
 	int m_idleAfterMinutes;
 	int m_lastActivity;
 	int m_debug;
-	int m_nightHoursStart;
-	int m_nightHoursEnd;
 	bool m_bAttachedPush;
 	bool m_bSkipMessageContent;
 	bool m_bAwayOnlyPush;
@@ -300,8 +298,6 @@ public:
 		m_bAwayOnlyPush = false;
 		m_bIgnoreNetworkServices = false;
 		m_idleAfterMinutes=0;
-		m_nightHoursStart=-1;
-		m_nightHoursEnd=-1;
 		m_debug=0;
 
 		LoadRegistry();
@@ -341,10 +337,6 @@ public:
 				m_bAwayOnlyPush = it->second.ToBool();
 			} else if (it->first == "u:ignorenetworkservices") {
 				m_bIgnoreNetworkServices = it->second.ToBool();
-			} else if (it->first == "u:nighthoursstart") {
-				m_nightHoursStart = it->second.ToInt();
-			} else if (it->first == "u:nighthoursend") {
-				m_nightHoursEnd = it->second.ToInt();
 			} else if (it->first == "u:debug") {
 				m_debug = it->second.ToInt();
 			}
@@ -545,8 +537,6 @@ public:
 			PutModule("  If enabled, znc won't push the content of the message.");
 			PutModule("Command: SET idle <minutes>");
 			PutModule("  If attachedpush is enabled, wait for 'idle' minutes before pushing messages.");
-			PutModule("Command: SET nighthours <start> <end>");
-			PutModule("  Don't send notifications after nighthours start and before nighthours end.");
 			PutModule("Command: SET ignorenetworkservices 0|1");
 			PutModule("  Enable this to stop receiving notifications from IRC services.");
 		} else if (sCommand.Equals("LIST")) {
@@ -612,10 +602,6 @@ public:
 			} else if (sKey == "debug") {
 				m_debug=sCommand.Token(2).ToInt();
 				PutModule("Debug: '"+CString(m_debug)+"'");
-			} else if (sKey == "nighthours") {
-				m_nightHoursStart=hoursToInt(sCommand.Token(2));
-				m_nightHoursEnd=hoursToInt(sCommand.Token(3));
-				PutModule("Night Hours: "+intToHours(m_nightHoursStart)+" - "+intToHours(m_nightHoursEnd));
 			}	else if ( sKey == "skipmessagecontent" ) {
 				m_bSkipMessageContent=sCommand.Token(2).ToBool();
 				PutModule("Skip Message Content: '"+CString(m_bSkipMessageContent)+"'");
@@ -631,8 +617,6 @@ public:
 			SetNV("u:skipmessagecontent", CString(m_bSkipMessageContent), false);
 			SetNV("u:ignorenetworkservices", CString(m_bIgnoreNetworkServices), false);
 			SetNV("u:debug", CString(m_debug), false);
-			SetNV("u:nighthoursstart", CString(m_nightHoursStart), false);
-			SetNV("u:nighthoursend", CString(m_nightHoursEnd), false);
 		} else if (sCommand.Token(0).Equals("STATUS")) {
 			CTable Table;
 			Table.AddColumn("Option");
@@ -660,10 +644,6 @@ public:
 			Table.AddRow();
 			Table.SetCell("Option","");
 			Table.SetCell("Value","");
-
-			Table.AddRow();
-			Table.SetCell("Option","Night Hours (no push)");
-			Table.SetCell("Value",intToHours(m_nightHoursStart)+" - "+intToHours(m_nightHoursEnd));
 
 			Table.AddRow();
 			Table.SetCell("Option","Ignore network services");
@@ -747,21 +727,6 @@ public:
 			}
 		}
 
-		//Check nightHours
-		bool bNightHours=false;
-		if ((m_nightHoursStart>-1) && (m_nightHoursEnd>-1)) {
-			time_t ww;
-			time(&ww);
-			struct tm* lt=localtime(&ww);
-			int minutes=lt->tm_hour*60+lt->tm_min;
-			if ((m_nightHoursStart && (minutes>=m_nightHoursStart)) || (m_nightHoursEnd && (minutes<m_nightHoursEnd))) {
-				bNightHours=true;
-			}
-			//PutModule(CString(m_nightHoursStart) + ";"  + CString(m_nightHoursEnd) + "=" + CString(minutes));
-		}
-		if (bNightHours) {
-			return false;
-		}
 
 
 		//Check idleTimer
