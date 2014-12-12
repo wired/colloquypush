@@ -714,7 +714,8 @@ public:
 
 	bool Test(const CString& sKeyWord, const CString& sString) {
 		return (!sKeyWord.empty() && (
-			sString.Equals(sKeyWord + " ", false, sKeyWord.length() +1)
+			sString.Equals(sKeyWord)
+			|| sString.Equals(sKeyWord + " ", false, sKeyWord.length() +1)
 			|| sString.Right(sKeyWord.length() +1).Equals(" " + sKeyWord)
 			|| sString.AsLower().WildCmp("* " + sKeyWord.AsLower() + " *")
 			|| (sKeyWord.find_first_of("*?") != CString::npos && sString.AsLower().WildCmp(sKeyWord.AsLower()))
