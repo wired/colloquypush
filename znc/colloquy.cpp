@@ -775,7 +775,7 @@ public:
 		}
 
 		bool bRet = true;
-		vector<CClient*>& vpClients = GetNetwork()->GetClients();
+		vector<CClient*> const& vpClients = GetNetwork()->GetClients();
 
 		// Cycle through all of the cached devices
 		for (map<CString, CDevice*>::iterator it = m_mspDevices.begin(); it != m_mspDevices.end(); it++) {
